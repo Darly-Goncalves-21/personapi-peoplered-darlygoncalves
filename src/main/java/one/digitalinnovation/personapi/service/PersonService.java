@@ -1,5 +1,6 @@
 package one.digitalinnovation.personapi.service;
 
+import lombok.AllArgsConstructor;
 import one.digitalinnovation.personapi.dto.MessageResponseDTO;
 import one.digitalinnovation.personapi.dto.request.PersonDTO;
 import one.digitalinnovation.personapi.entity.Person;
@@ -16,45 +17,66 @@ import java.util.stream.Collectors;
 @Service
 @AllArgsConstructor(onConstructor = @__(@Autowired))
 public class PersonService {
-    private PersonRespository personRespository;
 
-    private final PersonMapper personMapper = PersonMapper.INSTANCE;
+    private final PersonRepository personRepository;
 
-    public MessageResponseDTO createPerson(PersonDTO personDTO) {
-        Person personToSave = personMapper.toModel(personDTO);
-        Person savedPerson = personRespository.save(personToSave);
-        return createMessageResponse(savedPerson.getId(), "Created person with id: ");
+    private final PersonMapper personMapper;
+
+    public PersonService(PersonRepository personRepository) {
+        this.personRepository = personRepository;
+        personMapper = null;
     }
 
-    public List<PersonDTO> listAll() {
-        List<Person> list=personRespository.findAll();
-        return list.stream().map(personMapper::toDTO).collect(Collectors.toList());
+    public MessageResponseDTO create(PersonDTO personDTO) {
+        Person person = personMapper.toModel(personDTO);
+        Person savedPerson = personRepository.save(person);
+
+        MessageResponseDTO messageResponse = createMessageResponse("Person successfully created with ID ", savedPerson.getId());
+
+        return messageResponse;
     }
 
     public PersonDTO findById(Long id) throws PersonNotFoundException {
-        Person person = verifyIfExist(id);
+        Person person = personRepository.findById(id)
+                .orElseThrow(() -> new PersonNotFoundException(id));
+
         return personMapper.toDTO(person);
     }
 
+    public List<PersonDTO> listAll() {
+        List<Person> people = personRepository.findAll();
+        return people.stream()
+                .map(personMapper::toDTO)
+                .collect(Collectors.toList());
+    }
+
+    public MessageResponseDTO update(Long id, PersonDTO personDTO) throws PersonNotFoundException {
+        personRepository.findById(id)
+                .orElseThrow(() -> new PersonNotFoundException(id));
+
+        Person updatedPerson = personMapper.toModel(personDTO);
+        Person savedPerson = personRepository.save(updatedPerson);
+
+        MessageResponseDTO messageResponse = createMessageResponse("Person successfully updated with ID ", savedPerson.getId());
+
+        return messageResponse;
+    }
+
     public void delete(Long id) throws PersonNotFoundException {
-        Person person = verifyIfExist(id);
-        personRespository.delete(person);
+        personRepository.findById(id)
+                .orElseThrow(() -> new PersonNotFoundException(id));
+
+        personRepository.deleteById(id);
     }
 
-    private Person verifyIfExist(Long id) throws PersonNotFoundException {
-        return personRespository.findById(id).orElseThrow(() -> new PersonNotFoundException(id));
+    private MessageResponseDTO createMessageResponse(String s, Long id2) {
+        return MessageResponseDTO.builder()
+                .message(s + id2)
+                .build();
     }
 
-    public MessageResponseDTO update(PersonDTO personDTO, Long id) throws PersonNotFoundException {
-        verifyIfExist(id);
-        Person personToUpdate = personMapper.toModel(personDTO);
-        Person updatePerson = personRespository.save(personToUpdate);
-        return createMessageResponse(updatePerson.getId(), "updated person with id: ");
 
-
-    }
-
-    private MessageResponseDTO createMessageResponse(Long id, String s) {
-        return MessageResponseDTO.builder().message(s + id).build();
+    public MessageResponseDTO createPerson(PersonDTO personDTO) {
+        return MessageResponseDTO.builder().build();
     }
 }
